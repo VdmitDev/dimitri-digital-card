@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    # Учётные данные только для разработки. Для публичного развёртывания используйте настоящие секреты.
+    environment:
+      POSTGRES_USER: card
+      POSTGRES_PASSWORD: card_dev_password
+      POSTGRES_DB: digital_card
+    # API ожидает успешного прохождения проверки, чтобы миграции не запускались,
+    # пока база данных ещё находится в процессе запуска.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U card -d digital_card"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Имя хоста — "postgres", то есть имя сервиса в сети Docker Compose.
+      DATABASE_URL: postgresql://card:card_dev_password@postgres:5432/digital_card?schema=public
+    ports:
+      # Порт хоста 3001 -> порт контейнера 3000.
+      - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

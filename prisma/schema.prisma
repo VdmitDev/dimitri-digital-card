@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Одна запись на человека. API использует самый ранний профиль как цифровую визитку.
+model Profile {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  headline    String
+  description String
+  links       ProfileLink[]
+  skills      Skill[]
+  experience  Experience[]
+  projects    Project[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// GitHub, LinkedIn и другие ссылки хранятся отдельно, чтобы для добавления новой ссылки не менять схему.
+model ProfileLink {
+  id        String  @id @default(cuid())
+  label     String
+  url       String
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, label])
+}
+
+model Skill {
+  id        String  @id @default(cuid())
+  name      String
+  category  String
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, name])
+  @@index([category])
+}
+
+// startDate/endDate хранятся как строки для отображения (например, "Jan 2024", "Present"),
+// поскольку "Present" не является датой. sortOrder 0 обозначает самое новое место работы.
+model Experience {
+  id           String   @id @default(cuid())
+  company      String
+  position     String
+  location     String
+  startDate    String
+  endDate      String
+  achievements String[]
+  sortOrder    Int      @default(0)
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, sortOrder])
+}
+
+// @@unique([profileId, name]) и индексы ускоряют запросы репозитория
+// по profileId с сортировкой по sortOrder.
+model Project {
+  id           String   @id @default(cuid())
+  name         String
+  description  String
+  url          String
+  technologies String[]
+  sortOrder    Int      @default(0)
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, name])
+  @@index([profileId, sortOrder])
+}
